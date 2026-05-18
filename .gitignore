@@ -51,3 +51,5 @@ quiz/flashcards.db
 quiz_gui/app.db
 questions_export.txt
 QUIZ_CLI.md
+quiz_gui/.DS_Store
+.DS_Store
