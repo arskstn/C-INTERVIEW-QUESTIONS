@@ -1,226 +1,82 @@
-# C++ INTERVIEW-QUESTIONS
+Данный форк является авторским дополнением оригинального репозитория C-INTERVIEW-QUESTIONS автора Jollu8
+<p>
+[АВТОР ОРГИНИЛЬНОГО РЕПОЗИТОРИЯ](https://github.com/Jollu8)
+</p>
+<p>
+[ОРИГИНАЛЬНЫЙ РЕПОЗИТОРИЙ](https://github.com/Jollu8/C-INTERVIEW-QUESTIONS)
+</p>
 
-[![CI](https://github.com/Jollu8/C-INTERVIEW-QUESTIONS/actions/workflows/ci.yml/badge.svg)](https://github.com/Jollu8/C-INTERVIEW-QUESTIONS/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Tests](https://img.shields.io/badge/tests-pytest-green)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
-![Status](https://img.shields.io/badge/status-in%20progress-orange)
+# C++ Flashcard Quiz — CLI
 
-````markdown
-## C++ INTERVIEW-QUESTIONS
+Терминальный тренажёр по вопросам из репозитория. Работает локально, без внешних зависимостей (кроме stdlib).
 
-Структурированный сборник 20000+ вопросов и материалов для подготовки к техническим собеседованиям.
-
-Репозиторий охватывает не только C/C++, но и широкий инженерный стек:
-алгоритмы, concurrency, Linux, networking, инструменты разработки, тестирование, архитектуру, базы данных и Python.
-
----
-
-## 🚀 Quick Start
+## Быстрый старт
 
 ```bash
-# 1. Установить зависимости
 pip install -r requirements.txt
 
-# 2. Сгенерировать индекс
-python scripts/build_index.py
+# Загрузить вопросы в локальную БД (один раз)
+python -m quiz.cli --populate
 
-# 3. Посчитать статистику
-python scripts/stats.py
+# Запустить квиз
+python -m quiz.cli
+```
 
-# 4. Проверить ссылки
-python scripts/validate_links.py
+## Команды
 
-# 5. Проверить метаданные
-python scripts/validate_meta.py
+| Команда | Что делает |
+|---|---|
+| `python -m quiz.cli` | Запустить квиз (выбор игрока, все вопросы) |
+| `python -m quiz.cli --populate` | Загрузить/обновить вопросы из `content/` в SQLite |
+| `python -m quiz.cli --leaderboard` | Таблица лидеров |
+| `python -m quiz.cli --summary` | Статистика последней сессии |
+| `python -m quiz.cli --difficulty "Лёгкий" "Средний"` | Фильтр по уровню (можно несколько) |
+| `python -m quiz.cli --count 20` | Ограничить количество вопросов |
+| `python -m quiz.cli --no-shuffle` | Вопросы по порядку, без перемешивания |
 
-# 6. Запустить тесты
-pytest
-````
+## Управление в квизе
 
----
+| Клавиша | Действие |
+|---|---|
+| `l` | Знаю |
+| `h` | Не знаю |
+| `j` | Пропустить |
+| `?` | Помощь из космоса |
+| `q` | Выйти |
 
-## 📌 О проекте
+**Помощь из космоса** — подключается к [RANDOM.ORG](https://www.random.org) (атмосферный шум как источник энтропии), получает 8 случайных байт, выводит сид и делает предсказание. Заготовка под будущий режим с 4 вариантами ответов.
 
-Это не просто список вопросов, а **структурированная база знаний**.
+## Файловая структура
 
-Особенность проекта:
+```
+quiz/
+├── parser.py    # парсинг markdown → вопросы (state machine по ## заголовкам)
+├── db.py        # SQLite: users, questions, sessions, responses
+├── session.py   # состояние текущей сессии
+└── cli.py       # точка входа
+quiz/flashcards.db   # локальная БД (в .gitignore)
+```
 
-* вопросы идут последовательно;
-* темы углубляются постепенно;
-* допускаются повторения для закрепления;
-* структура важнее "уникальности каждого вопроса".
+## БД
 
-Большинство вопросов:
+SQLite, `quiz/flashcards.db`. Таблицы:
 
-* собраны из открытых источников;
-* дополнены и расширены;
-* частично сгенерированы с помощью ИИ.
+- `users` — игроки
+- `questions` — вопросы (загружаются из `content/01_cpp/01–04.md` по умолчанию)
+- `sessions` — каждый запуск квиза
+- `responses` — ответы с рейтингом `known / unknown / skip`
 
----
+По умолчанию загружаются первые 4 файла из `content/01_cpp/`. Чтобы расширить — добавь пути в `quiz/parser.py` → `DEFAULT_FILES`.
 
-## 🧠 Тематические разделы
-
-* [01_cpp](./content/01_cpp/README.md) — C/C++
-* [02_algorithms_and_ds](./content/02_algorithms_and_ds/README.md) — алгоритмы
-* [03_concurrency](./content/03_concurrency/README.md) — многопоточность
-* [04_system_linux](./content/04_system_linux/README.md) — Linux / system
-* [05_networking](./content/05_networking/README.md) — сети
-* [06_tools_build_debug](./content/06_tools_build_debug/README.md) — инструменты
-* [07_testing_and_quality](./content/07_testing_and_quality/README.md) — тестирование
-* [08_architecture_and_design](./content/08_architecture_and_design/README.md) — архитектура
-* [09_database_and_storage](./content/09_database_and_storage/README.md) — базы данных
-* [10_python](./content/10_python/README.md) — Python
-
----
-
-## ⚙️ Как работает репозиторий
-
-Проект содержит не только контент, но и пайплайн обработки:
-
-### 1. Индексация
+## Экспорт вопросов
 
 ```bash
-python scripts/build_index.py
+python scripts/export_questions.py
+# → questions_export.txt, 18 000+ вопросов с глобальным номером и тегом
 ```
 
-* сканирует `content/**/*.md`
-* извлекает:
-
-    * заголовки
-    * ссылки
-    * количество вопросов
-* формирует `generated/index.json`
-
----
-
-### 2. Статистика
-
-```bash
-python scripts/stats.py
+Формат:
 ```
-
-Генерирует:
-
-* общее количество тем
-* количество вопросов
-* распределение по секциям
-
-→ `generated/stats.json`
-
----
-
-### 3. Валидация ссылок
-
-```bash
-python scripts/validate_links.py
+[1] [01_cpp | Лёгкий уровень]
+Что такое язык программирования C++?
 ```
-
-Проверяет:
-
-* все локальные markdown-ссылки
-* отсутствие битых путей
-
----
-
-### 4. Валидация метаданных
-
-```bash
-python scripts/validate_meta.py
-```
-
-Проверяет:
-
-* структуру `index.json`
-* обязательные поля
-* уникальность `id`
-* существование файлов
-
----
-
-### 5. Тесты
-
-```bash
-pytest
-```
-
-Покрывают:
-
-* структуру проекта
-* ссылки
-* уникальность id
-* консистентность данных
-
----
-
-## 📂 Структура репозитория
-
-```text
-content/        — вопросы и темы
-generated/      — сгенерированные артефакты
-schemas/        — JSON schema
-scripts/        — утилиты
-templates/      — шаблоны
-tests/          — проверки
-```
-
----
-
-## ➕ Как добавить новый вопрос
-
-1. Используй шаблон:
-
-```
-templates/question_file.md
-```
-
-2. Размести файл в нужной секции:
-
-```
-content/<section>/<topic>.md
-```
-
-3. После добавления:
-
-```bash
-python scripts/build_index.py
-python scripts/validate_meta.py
-pytest
-```
-
----
-
-## 🛠 Требования
-
-* Python 3.10+
-* pip
-
----
-
-## 🤝 Contribution
-
-См. `CONTRIBUTING.md`
-
----
-
-## ⚠️ Важно
-
-В репозитории могут встречаться:
-
-* Undefined Behavior
-* tricky cases
-* неоднозначные вопросы
-
-Это сделано намеренно для глубины понимания.
-
----
-
-## 🙏 Благодарности
-
-ИИ использовался для:
-
-* редактирования текста
-* переформулирования
-* генерации части вопросов
-* структурирования проекта
-
