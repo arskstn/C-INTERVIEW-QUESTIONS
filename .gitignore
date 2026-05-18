@@ -45,3 +45,9 @@ generated/stats.json
 *.pyo
 __pycache__/
 venv/
+
+# Quiz
+quiz/flashcards.db
+quiz_gui/app.db
+questions_export.txt
+QUIZ_CLI.md
