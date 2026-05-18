@@ -1,10 +1,11 @@
 Данный форк является авторским дополнением оригинального репозитория C-INTERVIEW-QUESTIONS автора Jollu8
-<p>
+
 [АВТОР ОРГИНИЛЬНОГО РЕПОЗИТОРИЯ](https://github.com/Jollu8)
-</p>
-<p>
+
 [ОРИГИНАЛЬНЫЙ РЕПОЗИТОРИЙ](https://github.com/Jollu8/C-INTERVIEW-QUESTIONS)
-</p>
+
+[ОРГИНАЛЬНЫЙ README Jollu8](README_origin.md)
+
 
 # C++ Flashcard Quiz — CLI
 
@@ -50,7 +51,7 @@ python -m quiz.cli
 
 ```
 quiz/
-├── parser.py    # парсинг markdown → вопросы (state machine по ## заголовкам)
+├── parser.py    # парсинг markdown => вопросы (state machine по ## заголовкам)
 ├── db.py        # SQLite: users, questions, sessions, responses
 ├── session.py   # состояние текущей сессии
 └── cli.py       # точка входа
@@ -66,13 +67,13 @@ SQLite, `quiz/flashcards.db`. Таблицы:
 - `sessions` — каждый запуск квиза
 - `responses` — ответы с рейтингом `known / unknown / skip`
 
-По умолчанию загружаются первые 4 файла из `content/01_cpp/`. Чтобы расширить — добавь пути в `quiz/parser.py` → `DEFAULT_FILES`.
+По умолчанию загружаются первые 4 файла из `content/01_cpp/`. Чтобы расширить — добавь пути в `quiz/parser.py` => `DEFAULT_FILES`.
 
 ## Экспорт вопросов
 
 ```bash
 python scripts/export_questions.py
-# → questions_export.txt, 18 000+ вопросов с глобальным номером и тегом
+# => questions_export.txt, 18 000+ вопросов с глобальным номером и тегом
 ```
 
 Формат:
