@@ -4,7 +4,7 @@ from PyQt6.QtGui import QFont, QPalette, QColor
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QHBoxLayout,
     QLabel, QMainWindow, QMessageBox, QPushButton,
-    QScrollArea, QStackedWidget, QTableWidget, QTableWidgetItem,
+    QScrollArea, QStackedWidget, QTabWidget, QTableWidget, QTableWidgetItem,
     QVBoxLayout, QWidget,
 )
 
@@ -35,12 +35,26 @@ class LeaderboardDialog(QDialog):
     def __init__(self, conn, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Таблица лидеров")
-        self.resize(720, 400)
+        self.resize(720, 460)
         self.setStyleSheet(f"background:{_SURFACE};")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
 
-        rows = db.get_leaderboard(conn)
+        tabs = QTabWidget()
+        tabs.setStyleSheet(
+            "QTabWidget::pane { border: 1px solid #444; } "
+            "QTabBar::tab { background:#2b2b2b; color:#aaa; padding:8px 20px; } "
+            "QTabBar::tab:selected { background:#1e90ff; color:white; }"
+        )
+        tabs.addTab(self._make_table(db.get_leaderboard(conn, "quiz")), "Тест (4 варианта)")
+        tabs.addTab(self._make_table(db.get_leaderboard(conn, "flashcard")), "Flashcard")
+        layout.addWidget(tabs)
+
+        close_btn = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close_btn.rejected.connect(self.reject)
+        layout.addWidget(close_btn)
+
+    def _make_table(self, rows: list[dict]) -> QWidget:
         headers = ["#", "Игрок", "Сессий", "Ответов", "Правильно", "Точность", "Ср. время"]
         table = QTableWidget(len(rows), len(headers))
         table.setHorizontalHeaderLabels(headers)
@@ -61,10 +75,7 @@ class LeaderboardDialog(QDialog):
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 table.setItem(i, j, item)
 
-        layout.addWidget(table)
-        close_btn = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        close_btn.rejected.connect(self.reject)
-        layout.addWidget(close_btn)
+        return table
 
 
 class MainWindow(QMainWindow):
@@ -90,18 +101,23 @@ class MainWindow(QMainWindow):
         self._home.refresh()
         self._stack.setCurrentWidget(self._home)
 
-    def _start_quiz(self, user_id: int) -> None:
-        quiz = QuizScreen(self._conn, user_id, parent=self)
+    def _start_quiz(self, user_id: int, settings: dict) -> None:
+        self._last_user_id = user_id
+        self._last_timer = settings.get("timer", 60)
+        self._last_mode = settings.get("mode", "quiz")
+        quiz = QuizScreen(self._conn, user_id, settings, parent=self)
         quiz.finished.connect(self._show_results)
+        quiz.cancelled.connect(self._on_quiz_cancelled)
         self._stack.addWidget(quiz)
         self._stack.setCurrentWidget(quiz)
         quiz.start()
         quiz.setFocus()
 
-    def _show_results(self, session_id: int) -> None:
+    def _show_results(self, session_id: int, timer_seconds: int) -> None:
         results = ResultsScreen(
             self._conn,
             session_id,
+            timer_seconds,
             on_home=self._show_home,
             on_retry_wrong=self._retry_wrong,
         )
@@ -109,7 +125,19 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentWidget(results)
 
     def _retry_wrong(self, question_ids: list[int]) -> None:
-        pass  # TODO: start quiz filtered to question_ids
+        if not question_ids or not hasattr(self, "_last_user_id"):
+            return
+        settings = {
+            "mode": getattr(self, "_last_mode", "quiz"),
+            "timer": getattr(self, "_last_timer", 60),
+            "question_ids": question_ids,
+        }
+        self._start_quiz(self._last_user_id, settings)
+
+    def _on_quiz_cancelled(self) -> None:
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.information(self, "Нет вопросов", "По выбранным фильтрам вопросов не найдено.")
+        self._show_home()
 
     def _show_leaderboard(self) -> None:
         dlg = LeaderboardDialog(self._conn, self)

@@ -14,7 +14,15 @@ from PyQt6.QtWidgets import (
 
 from quiz_gui import db
 
-_PALETTE = {"correct": "#4caf50", "wrong": "#f44336", "skip": "#ff9800", "timeout": "#9c27b0", "cosmic": "#2196f3"}
+_PALETTE = {
+    "correct": "#4caf50",
+    "wrong": "#f44336",
+    "skip": "#ff9800",
+    "timeout": "#9c27b0",
+    "cosmic ✓": "#64b5f6",
+    "cosmic ✗": "#1565c0",
+    "cosmic": "#2196f3",
+}
 _DARK_BG = "#1e1e1e"
 _CARD_BG = "#252525"
 
@@ -38,10 +46,12 @@ def _stat_card(label: str, value: str, color: str = "#e0e0e0") -> QWidget:
 
 
 class ResultsScreen(QWidget):
-    def __init__(self, conn, session_id: int, on_home, on_retry_wrong, parent=None):
+    def __init__(self, conn, session_id: int, timer_seconds: int = 60,
+                 on_home=None, on_retry_wrong=None, parent=None):
         super().__init__(parent)
         self._conn = conn
         self._session_id = session_id
+        self._timer_seconds = timer_seconds
         self._on_home = on_home
         self._on_retry_wrong = on_retry_wrong
         self.setStyleSheet(f"background:{_DARK_BG};")
@@ -84,6 +94,10 @@ class ResultsScreen(QWidget):
             if r["rating"] == "correct":
                 by_diff[diff]["correct"] += 1
 
+        cosmic_correct = sum(1 for r in responses if r["rating"] == "cosmic" and r["is_correct"] == 1)
+        cosmic_wrong = sum(1 for r in responses if r["rating"] == "cosmic" and r["is_correct"] == 0)
+        total_cosmic = counts["cosmic"]
+
         correct = counts["correct"]
         avg_time = sum(times) / len(times) if times else 0
         accuracy = round(correct / max(correct + counts["wrong"], 1) * 100)
@@ -92,13 +106,21 @@ class ResultsScreen(QWidget):
         cards.setSpacing(12)
         cards.addWidget(_stat_card("Правильно", str(correct), "#4caf50"))
         cards.addWidget(_stat_card("Неправильно", str(counts["wrong"]), "#f44336"))
+
+        if total_cosmic > 0:
+            if cosmic_correct + cosmic_wrong == total_cosmic:
+                cosmic_val = f"{cosmic_correct}✓  {cosmic_wrong}✗"
+            else:
+                cosmic_val = str(total_cosmic)
+            cards.addWidget(_stat_card("Космос", cosmic_val, "#2196f3"))
+
         cards.addWidget(_stat_card("Пропущено", str(counts["skip"]), "#ff9800"))
         cards.addWidget(_stat_card("Время вышло", str(counts["timeout"]), "#9c27b0"))
         cards.addWidget(_stat_card("Точность", f"{accuracy}%", "#1e90ff"))
         cards.addWidget(_stat_card("Ср. время", f"{avg_time:.1f}с", "#888"))
         root.addLayout(cards)
 
-        root.addWidget(self._make_charts(counts, by_diff, times))
+        root.addWidget(self._make_charts(counts, cosmic_correct, cosmic_wrong, total_cosmic, by_diff, times))
 
         btns = QHBoxLayout()
         btns.setSpacing(12)
@@ -125,7 +147,7 @@ class ResultsScreen(QWidget):
 
         root.addLayout(btns)
 
-    def _make_charts(self, counts, by_diff, times) -> QWidget:
+    def _make_charts(self, counts, cosmic_correct, cosmic_wrong, total_cosmic, by_diff, times) -> QWidget:
         fig = Figure(figsize=(12, 8), facecolor=_DARK_BG)
         fig.subplots_adjust(hspace=0.4, wspace=0.3)
 
@@ -133,12 +155,33 @@ class ResultsScreen(QWidget):
 
         ax1 = fig.add_subplot(2, 2, 1)
         ax1.set_facecolor(_CARD_BG)
-        labels = [k for k, v in counts.items() if v > 0]
-        values = [counts[k] for k in labels]
+        pie_data: dict[str, int] = {}
+        for k in ("correct", "wrong", "skip", "timeout"):
+            if counts[k] > 0:
+                pie_data[k] = counts[k]
+        if total_cosmic > 0:
+            if cosmic_correct + cosmic_wrong == total_cosmic:
+                if cosmic_correct:
+                    pie_data["cosmic ✓"] = cosmic_correct
+                if cosmic_wrong:
+                    pie_data["cosmic ✗"] = cosmic_wrong
+            else:
+                pie_data["cosmic"] = total_cosmic
+
+        labels = list(pie_data.keys())
+        values = [pie_data[k] for k in labels]
         colors = [_PALETTE.get(k, "#888") for k in labels]
-        wedges, texts, autotexts = ax1.pie(
-            values, labels=labels, colors=colors,
-            autopct="%1.0f%%", startangle=90,
+        display_labels = {
+            "correct": "Правильно", "wrong": "Неправильно",
+            "skip": "Пропущено", "timeout": "Время",
+            "cosmic ✓": "Космос ✓", "cosmic ✗": "Космос ✗", "cosmic": "Космос",
+        }
+        _, texts, autotexts = ax1.pie(
+            values,
+            labels=[display_labels.get(k, k) for k in labels],
+            colors=colors,
+            autopct="%1.0f%%",
+            startangle=90,
             textprops={"color": "#ccc", "fontsize": 9},
         )
         for at in autotexts:
@@ -148,15 +191,15 @@ class ResultsScreen(QWidget):
         ax2 = fig.add_subplot(2, 2, 2)
         ax2.set_facecolor(_CARD_BG)
         diffs = list(by_diff.keys())[:8]
-        short_diffs = [d[:12] for d in diffs]
+        short_diffs = [d[:20] for d in diffs]
         acc_vals = [
             round(by_diff[d]["correct"] / max(by_diff[d]["total"], 1) * 100)
             for d in diffs
         ]
         bars = ax2.barh(short_diffs, acc_vals, color="#1e90ff", height=0.6)
-        ax2.set_xlim(0, 100)
+        ax2.set_xlim(0, 110)
         ax2.set_xlabel("Точность, %", color="#aaa", fontsize=9)
-        ax2.set_title("Точность по уровням", **_txt)
+        ax2.set_title("Точность по категориям", **_txt)
         ax2.tick_params(colors="#aaa", labelsize=8)
         ax2.spines[:].set_color("#444")
         for bar, val in zip(bars, acc_vals):
@@ -166,10 +209,10 @@ class ResultsScreen(QWidget):
         ax3 = fig.add_subplot(2, 1, 2)
         ax3.set_facecolor(_CARD_BG)
         ax3.plot(range(1, len(times) + 1), times, color="#1e90ff", linewidth=1.5)
-        ax3.axhline(sum(times) / len(times), color="#ff9800", linewidth=1, linestyle="--",
-                    label=f"среднее: {sum(times)/len(times):.1f}с")
-        ax3.axhline(TIMER_SECONDS := 60, color="#f44336", linewidth=1, linestyle=":",
-                    label="лимит: 60с")
+        avg = sum(times) / len(times)
+        ax3.axhline(avg, color="#ff9800", linewidth=1, linestyle="--", label=f"среднее: {avg:.1f}с")
+        ax3.axhline(self._timer_seconds, color="#f44336", linewidth=1, linestyle=":",
+                    label=f"лимит: {self._timer_seconds}с")
         ax3.set_xlabel("Вопрос №", color="#aaa", fontsize=9)
         ax3.set_ylabel("Время, с", color="#aaa", fontsize=9)
         ax3.set_title("Время на каждый вопрос", **_txt)

@@ -198,8 +198,15 @@ def get_wrong_question_ids(conn: sqlite3.Connection, session_id: int) -> list[in
 
 # ── Leaderboard ──────────────────────────────────────────────────────────────
 
-def get_leaderboard(conn: sqlite3.Connection) -> list[dict]:
-    rows = conn.execute("""
+def get_sections(conn: sqlite3.Connection) -> list[str]:
+    rows = conn.execute("SELECT DISTINCT section FROM questions ORDER BY section").fetchall()
+    return [r["section"] for r in rows]
+
+
+def get_leaderboard(conn: sqlite3.Connection, scope: str | None = None) -> list[dict]:
+    where = "WHERE s.scope = ?" if scope else ""
+    params = (scope,) if scope else ()
+    rows = conn.execute(f"""
         SELECT
             u.name,
             COUNT(DISTINCT s.id)                                                AS sessions,
@@ -214,9 +221,10 @@ def get_leaderboard(conn: sqlite3.Connection) -> list[dict]:
         FROM users u
         JOIN sessions s ON s.user_id = u.id
         JOIN responses r ON r.session_id = s.id
+        {where}
         GROUP BY u.id
         ORDER BY accuracy DESC, correct DESC
-    """).fetchall()
+    """, params).fetchall()
     return [dict(r) for r in rows]
 
 
