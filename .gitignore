@@ -38,3 +38,4 @@ cmake-build-release/
 flashcards.db
 app.db
 questions_export.txt
+.DS_Store
