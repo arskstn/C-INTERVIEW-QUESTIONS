@@ -54,3 +54,4 @@ QUIZ_CLI.md
 quiz_gui/.DS_Store
 .DS_Store
 answers_old.jsonl
+.claude/
